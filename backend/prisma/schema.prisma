@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url is provided via prisma.config.ts
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  BUSINESS_OWNER
+  STAFF
+}
+
+enum BusinessType {
+  CLINIC
+  SALON
+  COACHING_CENTER
+  RESTAURANT
+  GYM
+  REAL_ESTATE
+  OTHER
+}
+
+enum SubscriptionStatus {
+  FREE
+  TRIAL
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ========== USERS ==========
+model User {
+  id            String   @id @default(cuid())
+  firebaseUid   String   @unique
+  email         String   @unique
+  name          String?
+  phone         String?
+  role          UserRole @default(BUSINESS_OWNER)
+  avatarUrl     String?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  businesses    Business[]
+  subscriptions Subscription[]
+}
+
+// ========== BUSINESSES ==========
+model Business {
+  id              String       @id @default(cuid())
+  name            String
+  type            BusinessType @default(OTHER)
+  description     String?
+  address         String?
+  city            String?
+  state           String?
+  pincode         String?
+  phone           String
+  email           String?
+  website         String?
+  logoUrl         String?
+  businessHours   Json?        // JSON object for business hours
+  timezone        String       @default("Asia/Kolkata")
+  language        String       @default("hi")
+  whatsappNumber  String?
+  whatsappBusinessId String?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  ownerId         String
+  owner           User         @relation(fields: [ownerId], references: [id])
+
+  aiSettings      AiSettings?
+  faqs            Faq[]
+  messages        WhatsAppMessage[]
+  leads           Lead[]
+  appointments    Appointment[]
+  workflows       Workflow[]
+  analyticsEvents AnalyticsEvent[]
+  subscription    Subscription?
+  whatsappTemplates WhatsAppTemplate[]
+}
+
+// ========== AI SETTINGS ==========
+model AiSettings {
+  id              String   @id @default(cuid())
+  businessId      String   @unique
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tone            String   @default("professional")
+  language        String   @default("hi-en") // Hindi + English mix
+  welcomeMessage  String?
+  fallbackMessage String?
+  autoReplyEnabled Boolean @default(true)
+  businessHoursOnly Boolean @default(true)
+  leadCaptureEnabled Boolean @default(true)
+  appointmentEnabled Boolean @default(true)
+  faqEnabled      Boolean  @default(true)
+  customPrompt    String?
+  maxResponseLength Int     @default(500)
+  temperature     Float    @default(0.7)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ========== FAQS ==========
+model Faq {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  question    String
+  answer      String
+  category    String?
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ========== WHATSAPP MESSAGES ==========
+model WhatsAppMessage {
+  id            String           @id @default(cuid())
+  businessId    String
+  business      Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  fromNumber    String
+  toNumber      String
+  content       String?
+  mediaUrl      String?
+  mediaType     String?
+  direction     MessageDirection
+  status        MessageStatus    @default(SENT)
+  metadata      Json?            // Additional metadata
+  isAiGenerated Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  leadId        String?
+  lead          Lead?            @relation(fields: [leadId], references: [id])
+}
+
+// ========== LEADS ==========
+model Lead {
+  id              String        @id @default(cuid())
+  businessId      String
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name            String?
+  phone           String
+  email           String?
+  source          String?       // whatsapp, website, referral, etc.
+  status          LeadStatus    @default(NEW)
+  score           Int           @default(0) // Lead score 0-100
+  notes           String?
+  customFields    Json?
+  lastContactedAt DateTime?
+  convertedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  messages        WhatsAppMessage[]
+  appointments    Appointment[]
+}
+
+// ========== APPOINTMENTS ==========
+model Appointment {
+  id          String             @id @default(cuid())
+  businessId  String
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  leadId      String?
+  lead        Lead?              @relation(fields: [leadId], references: [id])
+  customerName String
+  customerPhone String
+  customerEmail String?
+  title       String
+  description String?
+  date        DateTime
+  duration    Int                @default(30) // minutes
+  status      AppointmentStatus  @default(PENDING)
+  notes       String?
+  reminderSent Boolean           @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+// ========== SUBSCRIPTIONS ==========
+model Subscription {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id])
+  businessId      String             @unique
+  business        Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  razorpaySubscriptionId String?      @unique
+  planId          String
+  planName        String
+  status          SubscriptionStatus @default(FREE)
+  amount          Float              @default(0)
+  currency        String             @default("INR")
+  trialEndsAt     DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+// ========== WORKFLOWS ==========
+model Workflow {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  trigger     String   // welcome_message, follow_up, payment_reminder, review_request
+  action      Json     // Action configuration
+  schedule    Json?    // Schedule configuration
+  isActive    Boolean  @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ========== ANALYTICS EVENTS ==========
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  event       String   // message_sent, lead_captured, appointment_booked, etc.
+  properties  Json?    // Event properties
+  createdAt   DateTime @default(now())
+}
+
+// ========== WHATSAPP TEMPLATES ==========
+model WhatsAppTemplate {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  category    String   // marketing, utility, authentication
+  content     String
+  language    String   @default("en")
+  status      String   @default("approved")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
