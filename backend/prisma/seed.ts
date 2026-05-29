@@ -34,6 +34,31 @@ const FIREBASE_STAFF_UID = process.env.FIREBASE_STAFF_UID || ''; // Optional sec
 async function main() {
   console.log('🌱 Seeding database with demo data...\n');
 
+  // ========== CHECK: Real Firebase UIDs provided? ==========
+  const hasRealUids =
+    FIREBASE_ADMIN_UID !== 'PLACEHOLDER_ADMIN_UID' &&
+    FIREBASE_ADMIN_UID.length > 10;
+
+  if (!hasRealUids) {
+    console.log('⚠️  Skipping user creation — no Firebase UIDs provided.');
+    console.log('   The seed can only create business data (leads, messages,');
+    console.log('   appointments, etc.) but needs real Firebase UIDs to');
+    console.log('   link them to actual auth users.');
+    console.log('');
+    console.log('   📋 To proceed properly:');
+    console.log('   1. Go to Firebase Console → Authentication → Users');
+    console.log('   2. Click "Add User" and create:');
+    console.log('      - admin@freebuff.in  /  Admin@123');
+    console.log('      - staff@freebuff.in  /  Staff@123');
+    console.log('   3. Copy each user\'s UID');
+    console.log('   4. Run: FIREBASE_ADMIN_UID=<uid> FIREBASE_STAFF_UID=<uid2> npx tsx prisma/seed.ts');
+    console.log('');
+    console.log('   💡 Or set them in backend/.env:');
+    console.log('      FIREBASE_ADMIN_UID=abc123...');
+    console.log('      FIREBASE_STAFF_UID=def456...\n');
+    return;
+  }
+
   // ========== STEP 1: DEMO USERS ==========
   console.log('👤 Creating demo users...');
 
@@ -52,9 +77,8 @@ async function main() {
   console.log(`   ✅ Admin: ${adminUser.name} (${adminUser.email})`);
 
   // --- Staff User (optional, created only if FIREBASE_STAFF_UID is provided) ---
-  let staffUser = null;
-  if (FIREBASE_STAFF_UID) {
-    staffUser = await prisma.user.upsert({
+  if (FIREBASE_STAFF_UID && FIREBASE_STAFF_UID.length > 10) {
+    await prisma.user.upsert({
       where: { firebaseUid: FIREBASE_STAFF_UID },
       update: {},
       create: {
@@ -65,7 +89,7 @@ async function main() {
         role: 'STAFF',
       },
     });
-    console.log(`   ✅ Staff: ${staffUser.name} (${staffUser.email})`);
+    console.log(`   ✅ Staff: Priya Patel (staff@freebuff.in)`);
   }
 
   // Use admin user as the owner for the demo business
@@ -494,24 +518,7 @@ async function main() {
   console.log(`   📝 WhatsApp Templates:   ${counts.templates}`);
   console.log('═══════════════════════════════════════════\n');
 
-  if (FIREBASE_ADMIN_UID === 'PLACEHOLDER_ADMIN_UID') {
-    console.log('⚠️  IMPORTANT: The demo data is linked to a placeholder Firebase UID.');
-    console.log('   To link this data to your REAL Firebase users:');
-    console.log('');
-    console.log('   1. Go to Firebase Console → Authentication → Users tab');
-    console.log('   2. Click "Add User" and create these users:');
-    console.log('      - admin@freebuff.in  /  Admin@123');
-    console.log('      - staff@freebuff.in  /  Staff@123');
-    console.log('   3. Click each user and copy their UID');
-    console.log('   4. Run the seed with UIDs:');
-    console.log('      FIREBASE_ADMIN_UID=<admin-uid> FIREBASE_STAFF_UID=<staff-uid> npx tsx prisma/seed.ts');
-    console.log('');
-    console.log('   💡 Or set them in your .env file:');
-    console.log('      FIREBASE_ADMIN_UID=abc123...');
-    console.log('      FIREBASE_STAFF_UID=def456...\n');
-  } else {
-    console.log(`✅ Demo data linked to: admin@freebuff.in / staff@freebuff.in\n`);
-  }
+  console.log(`✅ Demo data linked to: admin@freebuff.in / staff@freebuff.in\n`);
 }
 
 main()

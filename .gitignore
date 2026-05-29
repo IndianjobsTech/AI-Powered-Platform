@@ -25,6 +25,12 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Windows special files (reserved device names)
+nul
+NUL
+desktop.ini
+*.lnk
+
 # Logs
 logs/
 *.log
