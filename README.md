@@ -1,4 +1,4 @@
-# Freebuff - AI Automation for Your Business
+# AI Automation for Your Business
 
 A multi-platform SaaS application that automates WhatsApp customer support, appointment booking, lead generation, and business communications using AI.
 
